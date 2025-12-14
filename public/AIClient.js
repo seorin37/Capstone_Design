@@ -1,57 +1,125 @@
-// public/js/AIClient.js
+/**
+ * public/js/AIClient.js
+ */
+
+// 1. 설정
+const VALID_SCENARIOS = ["collision", "orbit", "solar_eclipse", "lunar_eclipse", "planet_birth", "sequence", "unknown"];
+const VALID_TEXTURES = ["Sun", "Mercury", "Venus", "Earth", "Moon", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"];
+
+// 2. JSON 추출 (군더더기 제거)
+function extractJsonBlock(text) {
+  if (!text) return "";
+  // ```json 같은 마크다운 제거
+  let clean = text.replace(/```json/g, '').replace(/```/g, '');
+  // { ... } 구간만 추출
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start !== -1 && end !== -1) {
+    return clean.substring(start, end + 1);
+  }
+  return clean.trim();
+}
+
+// 3. 검증기 (보정 없이 엄격하게 검사 -> 틀리면 에러 리턴)
+function validateSimulationData(data) {
+  // 시나리오 타입 확인
+  if (!data.scenarioType) return "scenarioType 키가 누락되었습니다.";
+  if (!VALID_SCENARIOS.includes(data.scenarioType)) return `알 수 없는 scenarioType: ${data.scenarioType}`;
+  
+  // 시퀀스 모드 검사
+  if (data.scenarioType === 'sequence') {
+    if (!data.steps || !Array.isArray(data.steps) || data.steps.length === 0) {
+      return "sequence 타입은 steps 배열이 필요합니다.";
+    }
+    // steps 내부 재귀 검사
+    for (let i = 0; i < data.steps.length; i++) {
+      const stepError = validateSimulationData(data.steps[i]);
+      if (stepError) return `steps[${i}]번 항목 오류: ${stepError}`;
+    }
+    return null; // 통과
+  }
+
+  // 단일 모드 검사
+  if (!data.objects || !Array.isArray(data.objects)) return "objects 배열이 누락되었습니다.";
+  
+  // 텍스처 검사 (없는 건 삭제 처리)
+  data.objects = data.objects.filter(obj => VALID_TEXTURES.includes(obj.textureKey));
+  
+  if (data.objects.length === 0 && data.scenarioType !== 'unknown') {
+    return "유효한 textureKey를 가진 객체가 없습니다.";
+  }
+
+  return null; // 통과
+}
+
+// 4. 메인 함수
 export async function getJsonFromAI(userInput) {
-    const promptTemplate = `
-  당신은 3D 천체 물리학 시뮬레이션 전문가입니다.
-  사용자의 요청을 분석하여 **5가지 시나리오 중 하나**를 선택하고, 그에 맞는 **JSON 데이터**를 반환하세요.
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+
+  // 프롬프트: 복잡한 예시 다 빼고 "스키마"만 명확히 전달
+  const basePrompt = `
+  사용자 요청("${userInput}")을 분석하여 3D 시뮬레이션 JSON을 반환하세요.
   
-  ### 1. 시나리오 유형 (scenarioType) - 다음 중 하나 선택:
-  1. "collision": 행성 간 충돌. (반대편에서 중앙으로 돌진)
-  2. "orbit": 자전 및 공전. (태양을 중심으로 행성이 돔)
-  3. "solar_eclipse": 개기일식. [태양 - 달 - 지구] 순서로 X축 일직선 배치. (달이 태양을 가림)
-  4. "lunar_eclipse": 개기월식. [태양 - 지구 - 달] 순서로 X축 일직선 배치. (지구가 달을 가림)
-  5. "planet_birth": 행성의 탄생. (초기에 아주 작은 크기로 시작, 먼지 구름 느낌)
+  [규칙]
+  1. 마크다운 없이 순수 JSON만 반환.
+  2. scenarioType 필수: "collision", "orbit", "solar_eclipse", "lunar_eclipse", "planet_birth", "sequence", "unknown"
+  3. textureKey 목록: ${JSON.stringify(VALID_TEXTURES)} (이 외 절대 금지)
   
-  ### 2. 좌표 및 설정 규칙:
-  - **일식/월식(eclipse)**: y=0, z=0 필수. x축 위에서 겹치도록 배치. 카메라가 측면에서 봄.
-  - **자전/공전(orbit)**: 태양은 정지(0,0,0), 행성은 적절한 거리와 **초기 속도(velocity)**를 주어 공전 궤도를 형성.
-  - **탄생(planet_birth)**: 위치는 (0,0,0) 근처, 움직임은 적게.
-  - **충돌(collision)**: 서로 마주보고 빠른 속도.
-  
-  ### 3. 출력 형식 (JSON Only):
-  - 마크다운(\`\`\`) 없이 순수 JSON 문자열만 반환.
-  - textureKey 목록: "Sun", "Mercury", "Venus", "Earth", "Moon", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"
-  
-  ---
-  [예시 데이터]
-  Q: "지구 탄생 과정 보여줘"
-  A: { "scenarioType": "planet_birth", "objects": [{ "name": "Proto-Earth", "textureKey": "Earth", "size": 5, "mass": 10, "position": {"x":0,"y":0,"z":0}, "velocity": {"x":0,"y":0,"z":0} }] }
-  
-  Q: "개기일식"
-  A: { "scenarioType": "solar_eclipse", "objects": [{ "name": "Sun", "textureKey": "Sun", "size": 15, ... }, { "name": "Moon", ... }, { "name": "Earth", ... }] }
-  ---
-  
-  [실제 요청]
-  사용자 입력: "${userInput}"
-  JSON 응답:`.trim();
-  
-    console.log('[AIClient] 요청:', userInput);
-  
+  [출력 형식 1: 단일 장면]
+  { "scenarioType": "orbit", "objects": [{ "name": "Earth", "textureKey": "Earth", ... }] }
+
+  [출력 형식 2: 연속 장면(sequence)]
+  {
+    "scenarioType": "sequence",
+    "steps": [
+      { "scenarioType": "solar_eclipse", "duration": 5000, "objects": [...] },
+      { "scenarioType": "lunar_eclipse", "duration": 5000, "objects": [...] }
+    ]
+  }
+  `;
+
+  let currentPrompt = basePrompt;
+
+  console.log(`[AIClient] 요청: "${userInput}"`);
+
+  while (attempt < MAX_RETRIES) {
+    attempt++;
     try {
       const res = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userInput: promptTemplate })
+        body: JSON.stringify({ userInput: currentPrompt })
       });
-  
-      if (!res.ok) throw new Error(`Proxy failed: ${res.status}`);
-  
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      const resData = await res.json();
+      const rawText = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
-      return JSON.parse(cleanText);
-    } catch (error) {
-      console.error('[AIClient] 오류:', error);
-      throw error;
+      // JSON 파싱
+      const jsonStr = extractJsonBlock(rawText);
+      console.log(`[AIClient] 응답(raw):`, jsonStr.substring(0, 100) + "...");
+      
+      let data;
+      try {
+        data = JSON.parse(jsonStr);
+      } catch (e) {
+        throw new Error("JSON 파싱 실패");
+      }
+
+      // 검증
+      const error = validateSimulationData(data);
+      if (!error) {
+        console.log("[AIClient] 성공!");
+        return data;
+      }
+
+      // 실패 -> 피드백 루프
+      console.warn(`[AIClient] 검증 실패(${attempt}): ${error}`);
+      currentPrompt = `이전 응답에 오류가 있습니다: "${error}". \n올바른 JSON 포맷으로 수정해서 다시 주세요. \n잘못된 응답: ${jsonStr}`;
+
+    } catch (err) {
+      console.error(`[AIClient] 에러(${attempt}):`, err.message);
+      if (attempt === MAX_RETRIES) throw err;
     }
   }
+}
