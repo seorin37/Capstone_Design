@@ -44,7 +44,3 @@ text3d_project/
 │
 ├── .gitignore                   # 보안 및 Git 관리 설정
 └── README.md                    # 이 문서
-
----
----
-
