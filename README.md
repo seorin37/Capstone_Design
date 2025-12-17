@@ -6,7 +6,7 @@
 ---
 
 
-# 1. 프로젝트 개요
+## 📌 프로젝트 개요
 
 Gen3D는 사용자가 입력한 자연어 문장을  
 LLM(Gemini → 추후 GPT 지원 예정)이 해석하여  
@@ -25,7 +25,158 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
 
 ---
 
-# 2. 폴더 구조
+## 👥 팀원 소개
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/team/song_gayoung.png" width="120"/><br/>
+      <strong>20211351 송가영</strong><br/>
+      태양계 공전·자전 씬 제작<br/>
+      프론트엔드
+    </td>
+    <td align="center">
+      <img src="docs/team/park_soyeon.png" width="120"/><br/>
+      <strong>20211333 박소연</strong><br/>
+      개기일식·개기월식 씬 제작<br/>
+      STT 기능 연결
+    </td>
+    <td align="center">
+      <img src="docs/team/eom_seorin.png" width="120"/><br/>
+      <strong>20211365 엄서린</strong><br/>
+      백엔드
+    </td>
+    <td align="center">
+      <img src="docs/team/hwang_jaeyoon.png" width="120"/><br/>
+      <strong>20211423 황재윤</strong><br/>
+      지구–소행성 충돌 씬 제작
+    </td>
+  </tr>
+</table>
+
+---
+## 🧱 프레임워크 & 기술 스택
+
+본 프로젝트는 **React(TypeScript) 기반 프론트엔드**,  
+**FastAPI 기반 백엔드**, **MongoDB 데이터베이스**,  
+**LLM(Gemini)**을 활용한 Full-Stack AI 시각화 플랫폼입니다.
+
+
+### 🎨 Frontend
+
+| 기술 | 설명 |
+|---|---|
+| **React** | 컴포넌트 기반 UI 구성 |
+| **TypeScript (TSX)** | 정적 타입 기반 안정적인 프론트엔드 개발 |
+| **Three.js** | WebGL 기반 3D 지구과학 시뮬레이션 렌더링 |
+| **Vite** | 빠른 개발 서버 및 번들링 환경 |
+
+**주요 역할**
+- 사용자 자연어 입력 UI 제공
+- 백엔드에서 전달된 시나리오 데이터 기반 3D 장면 렌더링
+- 카메라 제어 및 애니메이션 실행
+- 사용자 인터랙션 처리
+
+### ⚙️ Backend
+
+| 기술 | 설명 |
+|---|---|
+| **FastAPI** | Python 기반 고성능 비동기 REST API 서버 |
+| **Python** | 자연어 처리 및 시나리오 라우팅 로직 구현 |
+| **Uvicorn** | ASGI 서버 |
+
+**주요 역할**
+- 프론트엔드 요청 처리 (`/prompt/scene`)
+- 자연어 입력을 JSON 템플릿 형태로 구조화
+- LLM을 통한 시나리오 타입 및 천체 정보 파싱
+- 시나리오 타입에 따라 실행 스크립트 자동 라우팅
+
+### 🧠 자연어 처리 & 시나리오 생성 방식
+
+본 시스템은 사용자의 자연어 입력을 다음과 같은 흐름으로 처리합니다.
+
+- **사용자 입력**  
+  → 자연어 텍스트 또는 음성 입력
+
+- **자연어 구조화**  
+  → 입력 문장을 **JSON 템플릿 형태로 변환**
+
+- **LLM 기반 파싱**  
+  → 문장을 분석하여  
+  - 시나리오 타입 (예: 공전, 일식, 충돌 등)  
+  - 관련 천체 정보 (태양, 지구, 달 등) 추출
+
+- **시나리오 자동 라우팅**  
+  → 구조화된 JSON의 `scenarioType` 값을 기준으로  
+  해당 시나리오 스크립트를 자동 선택 및 실행
+
+- **음성 입력 보정**  
+  → 음성 인식 결과에 대해  
+  발음 오류·오타를 사전 정의된 정규화 맵으로 보정하여  
+  의도 해석의 안정성 향상
+
+### 🗄️ Database
+
+| 기술 | 설명 |
+|---|---|
+| **MongoDB** | NoSQL 기반 지구과학 오브젝트 메타데이터 저장 |
+
+**저장 정보**
+- 천체 및 오브젝트 기본 정보
+- 3D 모델(OBJ / MTL / Texture) 경로
+- 시나리오별 사용 오브젝트 매핑 정보
+
+---
+
+
+
+
+
+## 🧠 핵심 기능
+
+### 1️⃣ 자연어 명령어 해석 (LLM)
+- 문맥 인식 기반 자연어 처리
+- 사용자 의도 분석 및 시나리오 타입 추론
+- 모호한 표현에 대한 재질문 및 명확화 요청
+- 음성 입력 시 발음 오타 보정 지원
+
+### 2️⃣ 실시간 3D 렌더링 (Three.js)
+- 물리 기반 렌더링으로 사실적인 천체 표현
+- 광원, 그림자, 쉐이더 처리
+- 대규모 씬에서도 안정적인 렌더링 최적화
+
+### 3️⃣ 사용자 경험(UX) 최적화
+- 직관적인 카메라 조작 및 시점 전환
+- 시뮬레이션 속도 조절 및 타임라인 제어
+- 관심 객체 자동 추적(Focus Tracking)
+
+---
+
+## 🧩 시나리오
+
+### ☀️ 태양계 공전 · 자전 시나리오
+- 천체 정보 테이블 자동 생성 (지름, 평균 온도 등)
+- Gemini 기반 필터링 → 특정 행성 강조
+- Scene Graph 기반 부모–자식 구조
+  - `Sun → Earth → Moon`
+
+### 🌑 개기일식 · 개기월식 시나리오
+- 정렬 구조
+  - 개기일식: Sun → Moon → Earth
+  - 개기월식: Sun → Earth → Moon
+- castShadow / receiveShadow 기반 그림자 구현
+- AmbientLight 감소를 통한 광량 변화 시각화
+
+### ☄️ 지구–소행성 충돌 시나리오
+- 속도 벡터 기반 이동 방향 계산
+- 충돌 지점 중심 지형 요철(Noise) 생성
+- 파편 · 스파크 효과
+  - 진행 방향 반대 방향으로 분출
+  - 지구에 가까울수록 파편 밀도 증가
+
+---
+
+## 폴더 구조
 
 ```text
 text3d_project/
@@ -54,131 +205,98 @@ text3d_project/
 └── README.md                    # 이 문서
 ```
 
-## 3. 자연어 처리 → 장면 생성 전체 흐름
+---
 
-Gen3D는 아래와 같은 흐름으로 자연어를 3D 장면으로 변환합니다.
+## 🛠 설치 및 실행 방법
 
-1) 사용자 입력 (ChatPanel)  
-↓  
-2) 프론트엔드 → FastAPI(`/prompt/scene`) 요청  
-↓  
-3) LLM이 SceneGraph(JSON) 생성  
-↓  
-4) FastAPI가 MongoDB에서 오브젝트 정보 매핑  
-↓  
-5) 최종 SceneGraph(JSON)를 프론트로 반환  
-↓  
-6) ThreeCanvas가 3D 모델 로드 후 렌더링  
-↓  
-7) 필요한 경우 `/public/scenarios/*.js` 애니메이션 실행
-
+아래 안내는 **로컬 개발 환경 기준**입니다.
 
 ---
 
-# 4. SceneGraph 형식 (LLM 출력 예시)
+### 1️⃣ 사전 준비
 
-```json
-{
-  "scenarioType": "solar_system",
-  "objects": [
-    {
-      "name": "Sun",
-      "orbit": null,
-      "rotation_speed": 0.01
-    },
-    {
-      "name": "Earth",
-      "orbit": 20,
-      "rotation_speed": 0.02
-    }
-  ],
-  "animations": ["orbit"],
-  "camera": {
-    "position": [0, 50, 120],
-    "lookAt": [0, 0, 0]
-  }
-}
+아래 환경이 사전에 설치되어 있어야 합니다.
+
+- **Node.js** (권장: 18 이상)
+- **Python** (권장: 3.10 이상)
+- **MongoDB**
+  - 로컬 MongoDB 또는 MongoDB Atlas 사용 가능
+
+### 2️⃣ 프로젝트 클론
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd text3d_project
 ```
 
-# 5. 프론트엔드 구성 설명
+## ⚙️ Backend 실행 (FastAPI)
 
-Gen3D의 프론트엔드는 React + Three.js 구조로 이루어져 있으며, 주요 컴포넌트는 아래와 같습니다.
+### 1) Python 가상환경 생성 및 활성화
 
----
+#### Windows
 
-## 5.1 ThreeCanvas.tsx
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
 
-ThreeCanvas는 SceneGraph(JSON)를 실제 3D 장면으로 렌더링하는 핵심 엔진입니다.
+#### macOS / Linux
 
-### 주요 기능
-- SceneGraph(JSON)를 Three.js Mesh로 변환
-- OBJ / MTL / Texture 자동 로딩
-- 카메라/조명 초기 설정
-- 애니메이션 시스템(scenarios/*.js) 연동
-- FPS 기반 update(dt) 루프 처리
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
----
+### 2) 패키지 설치
+```bash
+pip install -r requirements.txt
+```
 
-## 5.2 ChatPanel.tsx
+### 3) 환경변수 설정
 
-사용자 입력을 받아 LLM API로 보내는 채팅 UI입니다.
+text3d_project/backend/.env 파일을 생성하고
+아래 내용을 작성합니다.
+```env
+# LLM API Key
+GOOGLE_API_KEY=YOUR_GEMINI_API_KEY
 
-### 역할
-- 입력창 + 전송 버튼
-- 사용자 및 시스템 메시지 출력
-- 대화 기록 유지
-- 서버 오류/응답 처리
+# MongoDB 설정
+MONGODB_URI=mongodb://localhost:27017
 
----
+# (선택) LLM 모델 설정
+GEMINI_MODEL=gemini-2.0-flash
+```
 
-## 5.3 Welcome.tsx
+### 4) FastAPI 서버 실행
+```bash
+cd backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8001
+```
 
-애플리케이션의 첫 화면 역할을 담당합니다.
+## 🎨 Frontend 실행 (React)
 
-### 특징
-- “시작하기” 버튼 UI
-- 메인 화면이 등장하기 전 로딩 또는 안내 역할
-- 영상형/게임형 UX 구성에 적합
+### 1) 패키지 설치
 
----
+```bash
+cd ../frontend
+npm install
+```
 
-# 6. 애니메이션 개발 가이드 (프론트엔드 팀원용)
+### 2) 환경변수 설정
+text3d_project/frontend/.env 파일을 생성하고
+아래 내용을 작성합니다.
 
-Gen3D의 애니메이션은 Three.js의 render loop와 별도로 동작하는 독립 모듈입니다.  
-프론트 팀원들은 `/public/scenarios/` 폴더에서 JS 파일만 추가하면 기능이 자동 연결됩니다.
+```bash
+VITE_API_BASE=http://127.0.0.1:8001
+```
 
----
+### 3) 프론트엔드 실행
 
-## 6.1 기본 템플릿
+```bash
+npm run dev
+```
 
-아래 템플릿을 그대로 복사하여 새로운 애니메이션을 만들 수 있습니다.
 
-```js
-export function initYourAnimation(scene, objects) {
-    // scene  : Three.js Scene 객체
-    // objects: { name: "Earth", mesh: THREE.Mesh } 형태
 
-    const earth = objects["Earth"].mesh;
-
-    function update(dt) {
-        // dt = delta time
-        earth.rotation.y += dt * 0.5;
-    }
-
-    return { update };
-}
-
----
-
-## 6.2 애니메이션 실행 방식
-
-SceneGraph의 `"animations"` 항목에 애니메이션 이름이 포함되면,  
-프론트엔드는 자동으로 해당 애니메이션 파일을 `/public/scenarios/` 폴더에서 찾아 로드합니다.
-
-### 예시 SceneGraph 입력
-```json
-{
-  "animations": ["giant_impact"]
-}
 
 
