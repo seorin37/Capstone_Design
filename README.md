@@ -175,125 +175,207 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
 
 ---
 
-## 폴더 구조
+##
+ 2. 프로젝트 구조
 
-```text
-text3d_project/
-│
-├── backend/                     # FastAPI 서버
-│   ├── main.py                  # 서버 엔트리포인트
-│   ├── routers/                 # prompt, scene, object API 라우터
-│   ├── ai/                      # LLM(Gemini/GPT) 호출 모듈
-│   ├── database/                # Mongo 연결 및 데이터 삽입 스크립트
-│   ├── static/                  # OBJ / MTL / Texture 제공 경로
-│   └── models/                  # SceneGraph 데이터 모델
-│
-├── frontend/                    # React + Three.js 기반 클라이언트
-│   ├── public/                  # 정적 파일
-│   │   ├── scenarios/           # 애니메이션 JS 파일들
-│   │   └── static/assets/       # OBJ, MTL, 텍스처 이미지
-│   ├── src/
-│   │   ├── components/          # UI (ThreeCanvas, ChatPanel 등)
-│   │   ├── threeEngine.ts       # Three.js 엔진
-│   │   ├── AIClient.js          # 서버와 통신
-│   │   └── main.tsx, App.tsx    # React 엔트리
-│
-├── functional_integration/      # 실험용 테스트 코드
-│
-├── .gitignore                   # 보안 및 Git 관리 설정
-└── README.md                    # 이 문서
+```
+
+Capstone_Design/
+├── public/
+├── images/
+├── server.js
+├── vite.config.js
+├── package.json
+├── package-lock.json
+├── .gitignore
+└── README.md
+
 ```
 
 ---
 
-## 🛠 설치 및 실행 방법
+##
+ 폴더 및 파일별 설명
 
-아래 안내는 **로컬 개발 환경 기준**입니다.
+###
+  `public/`
 
+프론트엔드의 핵심 디렉토리로, 브라우저에서 직접 실행되는 HTML 및 JavaScript 파일을 포함합니다.
+Three.js를 이용한 3D 씬 생성, 객체 배치, 애니메이션 및 사용자 입력 처리를 담당합니다.
+**
+주요 역할:
+**
+
+-
+ 사용자 입력 처리
+-
+ 3D 씬 구성 및 렌더링
+-
+ 객체 이동 및 상호작용 구현
+###
+  `images/`
+
+프로젝트에서 사용되는 이미지 리소스를 관리합니다.
+3D 객체 표현 또는 시각적 자료를 저장합니다.
+###
+  `server.js`
+
+Node.js 기반의 경량 서버 파일입니다.
+-
+ 프론트엔드 정적 파일 제공
+-
+ 향후 API 서버 또는 백엔드 확장을 고려한 엔트리 포인트
+>
+ 
+**
+참고:
+**
+ 본 프로젝트에서는 복잡한 백엔드 로직이나 데이터베이스 연동은 포함하지 않습니다.
+###
+  `vite.config.js`
+
+Vite 기반 개발 환경 설정 파일입니다.
+-
+ 빠른 번들링과 개발 서버 제공
+-
+ Three.js와 같은 ES 모듈 기반 라이브러리 사용을 위한 설정 포함
+###
+  `package.json`
+
+프로젝트 의존성 관리 및 실행/개발 관련 스크립트를 정의합니다.
+###
+  `package-lock.json`
+
+의존성 버전을 고정하여 개발 및 실행 환경의 일관성을 유지합니다.
+###
+  `.gitignore`
+
+Git 버전 관리에서 제외할 파일 및 폴더를 설정합니다.
+예: 
+`node_modules`
+, 빌드 결과물 등
 ---
 
-### 1️⃣ 사전 준비
+##
+  실행 방법
 
-아래 환경이 사전에 설치되어 있어야 합니다.
+###
+  실행 환경
 
-- **Node.js** (권장: 18 이상)
-- **Python** (권장: 3.10 이상)
-- **MongoDB**
-  - 로컬 MongoDB 또는 MongoDB Atlas 사용 가능
+-
+ 
+**
+Node.js
+**
+ (권장 버전: v18 이상)
+-
+ 
+**
+npm
+**
 
-### 2️⃣ 프로젝트 클론
+###
+  프로젝트 다운로드
 
-```bash
-git clone <YOUR_REPOSITORY_URL>
-cd text3d_project
+```
+bash
+
+git
+ clone https://github.com/seorin37/Capstone_Design.git
+cd
+ Capstone_Design
+
 ```
 
-## ⚙️ Backend 실행 (FastAPI)
+###
+  의존성 설치
 
-### 1) Python 가상환경 생성 및 활성화
+```
+bash
 
-#### Windows
+npm
+ 
+install
 
-```bash
-python -m venv venv
-venv\Scripts\activate
 ```
 
-#### macOS / Linux
+###
+  프론트엔드 실행
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
+```
+bash
+
+npm
+ run dev
+
 ```
 
-### 2) 패키지 설치
-```bash
-pip install -r requirements.txt
+실행 후 웹 브라우저에서 아래 주소로 접속합니다.
 ```
 
-### 3) 환경변수 설정
+http://localhost:5173
 
-text3d_project/backend/.env 파일을 생성하고
-아래 내용을 작성합니다.
-```env
-# LLM API Key
-GOOGLE_API_KEY=YOUR_GEMINI_API_KEY
-
-# MongoDB 설정
-MONGODB_URI=mongodb://localhost:27017
-
-# (선택) LLM 모델 설정
-GEMINI_MODEL=gemini-2.0-flash
 ```
 
-### 4) FastAPI 서버 실행
-```bash
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
+###
+  (선택) 서버 실행
+
+```
+bash
+
+node
+ server.js
+
 ```
 
-## 🎨 Frontend 실행 (React)
+-
+ 정적 파일 제공
+-
+ 향후 API 확장 가능
+---
 
-### 1) 패키지 설치
+##
+  시스템 동작 흐름
 
-```bash
-cd ../frontend
-npm install
-```
+1.
+ 사용자가 웹 페이지에서 텍스트 입력
+2.
+ 입력 내용을 기반으로 3D 씬 데이터 생성
+3.
+ Three.js를 통해 3D 객체 및 공간 구성
+4.
+ 브라우저에서 실시간 렌더링 및 상호작용 제공
+---
 
-### 2) 환경변수 설정
-text3d_project/frontend/.env 파일을 생성하고
-아래 내용을 작성합니다.
+##
+  설계 특징 및 확장 가능성
 
-```bash
-VITE_API_BASE=http://127.0.0.1:8001
-```
+-
+ 
+**
+프론트엔드 중심 구조
+**
+로 실시간 시각화에 최적화
+-
+ 서버 및 데이터베이스를 분리하여 
+**
+확장 가능한 구조
+**
 
-### 3) 프론트엔드 실행
+-
+ 향후 API 서버 및 DB 연동을 통해 씬 저장, 사용자 히스토리 관리 가능
+---
 
-```bash
-npm run dev
-```
+##
+  요약
+
+본 프로젝트는 
+**
+자연어 기반 3D 시각화
+**
+를 목표로 하며, Three.js를 활용한 프론트엔드 중심 설계를 통해 즉각적인 시각적 피드백과 사용자 인터랙션을 제공합니다.
+현재 구조는 단순성과 확장성을 동시에 고려한 형태로, 향후 백엔드 및 데이터 관리 기능을 추가할 수 있습니다.
+---
 
 
 
