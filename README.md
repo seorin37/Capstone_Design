@@ -57,7 +57,7 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
 ---
 ## 🧱 프레임워크 & 기술 스택
 
-본 프로젝트는 **React(TypeScript) 기반 프론트엔드**,  
+본 프로젝트는 **React 기반 프론트엔드**,  
 **FastAPI 기반 백엔드**, **MongoDB 데이터베이스**,  
 **LLM(Gemini)**을 활용한 Full-Stack AI 시각화 플랫폼입니다.
 
@@ -67,7 +67,6 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
 | 기술 | 설명 |
 |---|---|
 | **React** | 컴포넌트 기반 UI 구성 |
-| **TypeScript (TSX)** | 정적 타입 기반 안정적인 프론트엔드 개발 |
 | **Three.js** | WebGL 기반 3D 지구과학 시뮬레이션 렌더링 |
 | **Vite** | 빠른 개발 서버 및 번들링 환경 |
 
