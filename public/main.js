@@ -6,7 +6,7 @@ import { Planet } from './planet.js';
 import { getJsonFromAI } from './AIClient.js';
 
 // ─────────────────────────────────────────────────────────────
-// 시나리오 Import (collision/giantimpact 제거)
+// 시나리오 Import
 // ─────────────────────────────────────────────────────────────
 import { initSolarSystem } from './scenarios/SceneSolarSystem.js';
 import { initBirthScene } from './scenarios/SceneBirth.js';
@@ -59,11 +59,13 @@ const originalCameraPosition = new THREE.Vector3(0, 50, 150);
 camera.position.copy(originalCameraPosition);
 camera.lookAt(0, 0, 0);
 
-// 조명
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-const sunLight = new THREE.PointLight(0xffffff, 2, 1000);
-sunLight.position.set(0, 0, 0);
-scene.add(sunLight);
+// ✅ 조명 (기본 조명은 변수로 보관해야 resetScene에서 남길 수 있음)
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+scene.add(ambientLight);
+
+const baseSunLight = new THREE.PointLight(0xffffff, 2, 1000);
+baseSunLight.position.set(0, 0, 0);
+scene.add(baseSunLight);
 
 // ─────────────────────────────────────────────────────────────
 // 2. 물리 월드 & 상태 변수
@@ -381,428 +383,6 @@ function createAsteroidDebris(impactPos, impactNormal, earthRadius) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 씬 초기화
-// ─────────────────────────────────────────────────────────────
-function resetScene() {
-  currentScenarioUpdater = null;
-  followTarget = null;
-
-  if (asteroidTrail?.dispose) asteroidTrail.dispose();
-  asteroidTrail = null;
-
-  if (infoBox) infoBox.style.display = 'none';
-
-  if (currentControlsCleanup) {
-    currentControlsCleanup();
-    currentControlsCleanup = null;
-  }
-
-  for (const p of planets) p.dispose?.();
-  planets = [];
-
-  for (const e of explosions) e.dispose?.();
-  explosions = [];
-
-  for (let i = scene.children.length - 1; i >= 0; i--) {
-    const obj = scene.children[i];
-    if (obj.isLight || obj.isCamera || obj === universeMesh) continue;
-
-    scene.remove(obj);
-    if (obj.geometry) obj.geometry.dispose();
-    if (obj.material) {
-      if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
-      else obj.material.dispose();
-    }
-  }
-
-  controls.target.set(0, 0, 0);
-  controls.enableZoom = true;
-  controls.enableRotate = true;
-
-  console.log('🧹 씬 초기화 완료');
-}
-
-// 폭발 이펙트
-window.createExplosion = (position, color) => {
-  try {
-    const explosion = new Explosion(scene, position, color);
-    explosions.push(explosion);
-  } catch (e) {
-    console.warn('Explosion error:', e);
-  }
-};
-
-// ─────────────────────────────────────────────────────────────
-// 충돌 체크 (Earth+Asteroid만 폭발 처리)
-// ─────────────────────────────────────────────────────────────
-function checkCollisions() {
-  if (currentScenarioType === 'solar_eclipse' || currentScenarioType === 'lunar_eclipse') return;
-  if (planets.length < 2) return;
-
-  for (let i = 0; i < planets.length; i++) {
-    for (let j = i + 1; j < planets.length; j++) {
-      const p1 = planets[i];
-      const p2 = planets[j];
-      if (p1.isDead || p2.isDead) continue;
-
-      const n1 = (p1.data?.name || '').toLowerCase();
-      const n2 = (p2.data?.name || '').toLowerCase();
-      const combined = n1 + n2;
-
-      const hasEarth = combined.includes('earth');
-      const hasAsteroid = combined.includes('asteroid');
-      if (!hasEarth || !hasAsteroid) continue;
-
-      const dist = p1.mesh.position.distanceTo(p2.mesh.position);
-      const threshold = (p1.radius + p2.radius) * 1.05; // 조금 넉넉하게
-
-      if (dist < threshold) {
-        const earth = n1.includes('earth') ? p1 : p2;
-        const asteroid = n1.includes('asteroid') ? p1 : p2;
-        startAsteroidImpactExplosion(earth, asteroid);
-      }
-    }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Sequence 관리
-// ─────────────────────────────────────────────────────────────
-function startSequence(steps) {
-  if (!steps || steps.length === 0) return;
-
-  isSequenceMode = true;
-  sequenceSteps = steps;
-  currentStepIndex = 0;
-
-  console.log(`🎬 시퀀스 시작: 총 ${steps.length}단계`);
-  playStep(0);
-}
-
-function playStep(index) {
-  if (index >= sequenceSteps.length) {
-    endSequence();
-    return;
-  }
-
-  const stepData = sequenceSteps[index];
-  currentStepIndex = index;
-
-  createSceneFromData(stepData);
-
-  sequenceOverlay.style.display = 'block';
-  const typeName = stepData.scenarioType ? stepData.scenarioType.toUpperCase() : 'SCENE';
-
-  sequenceOverlay.innerHTML = `
-    <div style="font-size: 24px; color: #ffeb3b; margin-bottom: 5px;">Step ${index + 1} / ${sequenceSteps.length}</div>
-    <div style="font-size: 18px; color: #fff;">현재 장면: ${typeName}</div>
-    <div style="font-size: 14px; color: #ccc; margin-top: 10px; animation: blink 1.5s infinite;">
-      [SPACE] 키를 눌러 다음 장면으로 ▶
-    </div>
-    <style>
-      @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-    </style>
-  `;
-}
-
-function nextSequenceStep() {
-  if (!isSequenceMode) return;
-  playStep(currentStepIndex + 1);
-}
-
-function endSequence() {
-  console.log('🎬 시퀀스 종료');
-  isSequenceMode = false;
-  sequenceSteps = [];
-  currentStepIndex = 0;
-
-  sequenceOverlay.style.display = 'none';
-  alert('모든 시나리오 재생이 끝났습니다!');
-}
-
-// ─────────────────────────────────────────────────────────────
-// ✅ 병합 핸들러: "Earth+Asteroid 폭발"만 담당 (giantimpact/일반 병합 제거)
-// ─────────────────────────────────────────────────────────────
-window.handleMerger = (p1, p2) => {
-  if (p1.isDead || p2.isDead) return;
-
-  const n1 = (p1.data?.name || '').toLowerCase();
-  const n2 = (p2.data?.name || '').toLowerCase();
-  const combined = n1 + n2;
-
-  const hasEarth = combined.includes('earth');
-  const hasAsteroid = combined.includes('asteroid');
-
-  if (hasEarth && hasAsteroid) {
-    const earth = n1.includes('earth') ? p1 : p2;
-    const asteroid = n1.includes('asteroid') ? p1 : p2;
-    startAsteroidImpactExplosion(earth, asteroid);
-  }
-};
-
-// ─────────────────────────────────────────────────────────────
-// 5. 통합 시나리오 생성 함수 (AI Data -> Scene)
-// ─────────────────────────────────────────────────────────────
-async function createSceneFromData(aiData) {
-  resetScene();
-
-  if (!aiData) {
-    console.error('🚨 데이터가 없습니다.');
-    return;
-  }
-
-  let safeScenarioType = (aiData.scenarioType || aiData.type || '').toLowerCase().trim();
-
-  // ✅ Earth+Asteroid 감지 -> asteroid_impact 강제 전환
-  const names = aiData.objects?.map((o) => (o.name || '').toLowerCase()) || [];
-  const hasEarth = names.some((n) => n.includes('earth'));
-  const hasAsteroid = names.some((n) => n.includes('asteroid'));
-  if (hasEarth && hasAsteroid) safeScenarioType = 'asteroid_impact';
-
-  currentScenarioType = safeScenarioType;
-
-  let setupData = null;
-  const loader = new THREE.TextureLoader();
-
-  switch (safeScenarioType) {
-    case 'solar_system':
-    case 'orbit':
-      setupData = initSolarSystem(scene, world, loader, aiData);
-      break;
-
-    case 'solar_eclipse':
-      setupData = initSolarEclipseScene(scene, world, loader, aiData);
-      break;
-
-    case 'lunar_eclipse':
-      setupData = initLunarEclipseScene(scene, world, loader, aiData);
-      break;
-
-    case 'planet_birth':
-      setupData = initBirthScene(scene, world, loader, aiData);
-      break;
-
-    case 'asteroid_impact': {
-      if (typeof AsteroidImpactMod.initAsteroidImpact !== 'function') {
-        console.error('🚨 SceneAsteroidImpact.js 에서 initAsteroidImpact export를 찾지 못함');
-        console.error('📌 exports:', Object.keys(AsteroidImpactMod));
-        setupData = { planets: [], cameraPosition: aiData.cameraPosition };
-        break;
-      }
-
-      setupData = AsteroidImpactMod.initAsteroidImpact(scene, world, loader, aiData);
-
-      // ✅ 트레일 연결
-      if (setupData?.asteroid && setupData?.earth) {
-        if (asteroidTrail?.dispose) asteroidTrail.dispose();
-        asteroidTrail = createAsteroidFlameTrail(setupData.asteroid, setupData.earth);
-        explosions.push(asteroidTrail);
-      }
-      break;
-    }
-
-    default:
-      setupData = { planets: [], cameraPosition: aiData.cameraPosition };
-      if (aiData.objects && Array.isArray(aiData.objects)) {
-        for (const objData of aiData.objects) {
-          const p = new Planet(scene, world, loader, objData, currentScenarioType);
-          planets.push(p);
-        }
-      }
-      break;
-  }
-
-  if (setupData) {
-    if (setupData.planets) planets = setupData.planets;
-    if (setupData.update) currentScenarioUpdater = setupData.update;
-
-    if (setupData.setupControls && typeof setupData.setupControls === 'function') {
-      currentControlsCleanup = setupData.setupControls(camera, controls);
-    }
-
-    const defaultCamPos = { x: 0, y: 50, z: 150 };
-    const camPos = setupData.cameraPosition || aiData.cameraPosition || defaultCamPos;
-    const lookAtPos = setupData.cameraLookAt || { x: 0, y: 0, z: 0 };
-
-    const x = Number.isFinite(camPos.x) ? camPos.x : 0;
-    const y = Number.isFinite(camPos.y) ? camPos.y : 50;
-    const z = Number.isFinite(camPos.z) ? camPos.z : 150;
-
-    camera.position.set(x, y, z);
-    camera.lookAt(lookAtPos.x || 0, lookAtPos.y || 0, lookAtPos.z || 0);
-    controls.target.set(lookAtPos.x || 0, lookAtPos.y || 0, lookAtPos.z || 0);
-    originalCameraPosition.set(x, y, z);
-
-    controls.update();
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// 6. 물리 로직 (중력)
-// ─────────────────────────────────────────────────────────────
-function applyGravity() {
-  // ✅ 탄생/소행성 충돌에서는 중력 끔
-  if (currentScenarioType === 'planet_birth' || currentScenarioType === 'asteroid_impact') return;
-  if (planets.length < 2) return;
-
-  const sortedPlanets = [...planets].sort((a, b) => b.mass - a.mass);
-  const star = sortedPlanets[0];
-  const G = 10;
-
-  for (let i = 1; i < sortedPlanets.length; i++) {
-    const planet = sortedPlanets[i];
-    const distVec = new CANNON.Vec3();
-    star.body.position.vsub(planet.body.position, distVec);
-    const r_sq = distVec.lengthSquared();
-    if (r_sq < 1) continue;
-
-    const force = (G * star.mass * planet.mass) / r_sq;
-    distVec.normalize();
-    distVec.scale(force, distVec);
-    planet.body.applyForce(distVec, planet.body.position);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// 7. 사용자 입력
-// ─────────────────────────────────────────────────────────────
-const inputField = document.getElementById('user-input');
-const sendBtn = document.getElementById('send-btn');
-const statusDiv = document.getElementById('ai-status');
-
-async function handleUserRequest() {
-  const text = inputField.value;
-  if (!text) return;
-
-  sendBtn.disabled = true;
-  inputField.disabled = true;
-
-  isSequenceMode = false;
-  sequenceOverlay.style.display = 'none';
-
-  try {
-    statusDiv.innerText = 'AI가 생각 중... 🤔';
-    const aiData = await getJsonFromAI(text);
-
-    if ((aiData.scenarioType || '').toLowerCase() === 'sequence') {
-      statusDiv.innerText = `✅ 시퀀스 모드: 총 ${aiData.steps?.length ?? 0}개 장면`;
-      startSequence(aiData.steps);
-    } else {
-      await createSceneFromData(aiData);
-      statusDiv.innerText = `✅ 적용 완료: ${aiData.scenarioType}`;
-    }
-  } catch (error) {
-    console.error('🚨 오류:', error);
-    statusDiv.innerText = '🚨 예상과 다른 시나리오가 들어왔습니다.';
-  } finally {
-    sendBtn.disabled = false;
-    inputField.disabled = false;
-    inputField.value = '';
-    inputField.focus();
-  }
-}
-
-if (sendBtn) {
-  sendBtn.addEventListener('click', handleUserRequest);
-  inputField.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleUserRequest();
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
-// 🎙️ Voice Input (Web Speech API) - mic-btn
-// ─────────────────────────────────────────────────────────────
-const micBtn = document.getElementById('mic-btn');
-
-const SpeechRecognition =
-  window.SpeechRecognition || window.webkitSpeechRecognition;
-
-let recognition = null;
-let isListening = false;
-
-if (micBtn) {
-  if (!SpeechRecognition) {
-    // 브라우저 미지원
-    micBtn.disabled = true;
-    micBtn.title = '이 브라우저는 음성 인식(Web Speech API)을 지원하지 않습니다. (Chrome/Edge 권장)';
-    micBtn.style.opacity = '0.5';
-    console.warn('SpeechRecognition not supported in this browser.');
-  } else {
-    recognition = new SpeechRecognition();
-    recognition.lang = 'ko-KR';       // ✅ 한국어
-    recognition.interimResults = true; // ✅ 말하는 중간 텍스트도 표시
-    recognition.continuous = false;    // ✅ 한 번 말하면 종료
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      isListening = true;
-      micBtn.textContent = '🛑';
-      micBtn.style.background = '#ff5252';
-      statusDiv.innerText = '🎙️ 듣는 중... 말해줘!';
-    };
-
-    recognition.onresult = (event) => {
-      let finalText = '';
-      let interimText = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalText += transcript;
-        else interimText += transcript;
-      }
-
-      // ✅ 실시간 표시 (final 우선)
-      const text = (finalText || interimText || '').trim();
-      if (text) inputField.value = text;
-    };
-
-    recognition.onerror = (e) => {
-      console.warn('SpeechRecognition error:', e);
-
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        statusDiv.innerText = '🚫 마이크 권한이 필요해요. 브라우저에서 허용해줘!';
-      } else if (e.error === 'no-speech') {
-        statusDiv.innerText = '🎤 음성이 감지되지 않았어요. 다시 말해줘!';
-      } else {
-        statusDiv.innerText = `🚨 음성 인식 오류: ${e.error}`;
-      }
-    };
-
-    recognition.onend = async () => {
-      // onend는 정상 종료/중단/오류 후 모두 올 수 있음
-      const wasListening = isListening;
-
-      isListening = false;
-      micBtn.textContent = '🎙️';
-      micBtn.style.background = ''; // 기본 버튼색으로 복귀( CSS hover 유지 )
-      statusDiv.innerText = statusDiv.innerText || ' ';
-
-      // ✅ “듣다가 끝났고”, 텍스트가 있으면 자동 실행
-      const text = (inputField.value || '').trim();
-      if (wasListening && text) {
-        await handleUserRequest();
-      }
-    };
-
-    micBtn.addEventListener('click', () => {
-      if (!recognition) return;
-
-      // 시퀀스 모드/AI 실행 중엔 중복 입력 방지
-      if (sendBtn?.disabled || inputField?.disabled) return;
-
-      if (isListening) {
-        recognition.stop();
-      } else {
-        // ✅ 시작 전에 input 비우고 시작하면 깔끔
-        inputField.value = '';
-        recognition.start();
-      }
-    });
-  }
-}
-
-
-// ─────────────────────────────────────────────────────────────
 // Raycasting + 정보창
 // ─────────────────────────────────────────────────────────────
 const raycaster = new THREE.Raycaster();
@@ -879,29 +459,451 @@ window.addEventListener('pointerup', (event) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// 8. 애니메이션 루프
+// OrbitControls (여기서 생성)
 // ─────────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 
+// ─────────────────────────────────────────────────────────────
+// 씬 초기화
+// ─────────────────────────────────────────────────────────────
+function resetScene() {
+  currentScenarioUpdater = null;
+  followTarget = null;
+
+  if (asteroidTrail?.dispose) asteroidTrail.dispose();
+  asteroidTrail = null;
+
+  if (infoBox) infoBox.style.display = 'none';
+
+  if (currentControlsCleanup) {
+    currentControlsCleanup();
+    currentControlsCleanup = null;
+  }
+
+  for (const p of planets) p.dispose?.();
+  planets = [];
+
+  for (const e of explosions) e.dispose?.();
+  explosions = [];
+
+  // ✅ 기본 라이트만 남기고 나머지 씬 오브젝트 정리
+  for (let i = scene.children.length - 1; i >= 0; i--) {
+    const obj = scene.children[i];
+
+    if (obj === universeMesh) continue;
+    if (obj.isCamera) continue;
+
+    // ✅ 기본 조명만 유지
+    if (obj.isLight && (obj === ambientLight || obj === baseSunLight)) continue;
+
+    scene.remove(obj);
+
+    // dispose는 geometry/material 가진 것만
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+      if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+      else obj.material.dispose();
+    }
+  }
+
+  controls.target.set(0, 0, 0);
+  controls.enableZoom = true;
+  controls.enableRotate = true;
+
+  console.log('🧹 씬 초기화 완료');
+}
+
+// 폭발 이펙트
+window.createExplosion = (position, color) => {
+  try {
+    const explosion = new Explosion(scene, position, color);
+    explosions.push(explosion);
+  } catch (e) {
+    console.warn('Explosion error:', e);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// 충돌 체크 (Earth+Asteroid만 폭발 처리)
+// ─────────────────────────────────────────────────────────────
+function checkCollisions() {
+  if (currentScenarioType === 'solar_eclipse' || currentScenarioType === 'lunar_eclipse') return;
+  if (planets.length < 2) return;
+
+  for (let i = 0; i < planets.length; i++) {
+    for (let j = i + 1; j < planets.length; j++) {
+      const p1 = planets[i];
+      const p2 = planets[j];
+      if (p1.isDead || p2.isDead) continue;
+
+      const n1 = (p1.data?.name || '').toLowerCase();
+      const n2 = (p2.data?.name || '').toLowerCase();
+      const combined = n1 + n2;
+
+      const hasEarth = combined.includes('earth');
+      const hasAsteroid = combined.includes('asteroid');
+      if (!hasEarth || !hasAsteroid) continue;
+
+      const dist = p1.mesh.position.distanceTo(p2.mesh.position);
+      const threshold = (p1.radius + p2.radius) * 1.05;
+
+      if (dist < threshold) {
+        const earth = n1.includes('earth') ? p1 : p2;
+        const asteroid = n1.includes('asteroid') ? p1 : p2;
+        startAsteroidImpactExplosion(earth, asteroid);
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sequence 관리
+// ─────────────────────────────────────────────────────────────
+function startSequence(steps) {
+  if (!steps || steps.length === 0) return;
+
+  isSequenceMode = true;
+  sequenceSteps = steps;
+  currentStepIndex = 0;
+
+  console.log(`🎬 시퀀스 시작: 총 ${steps.length}단계`);
+  playStep(0);
+}
+
+function playStep(index) {
+  if (index >= sequenceSteps.length) {
+    endSequence();
+    return;
+  }
+
+  const stepData = sequenceSteps[index];
+  currentStepIndex = index;
+
+  createSceneFromData(stepData);
+
+  sequenceOverlay.style.display = 'block';
+  const typeName = stepData.scenarioType ? stepData.scenarioType.toUpperCase() : 'SCENE';
+
+  sequenceOverlay.innerHTML = `
+    <div style="font-size: 24px; color: #ffeb3b; margin-bottom: 5px;">Step ${index + 1} / ${sequenceSteps.length}</div>
+    <div style="font-size: 18px; color: #fff;">현재 장면: ${typeName}</div>
+    <div style="font-size: 14px; color: #ccc; margin-top: 10px; animation: blink 1.5s infinite;">
+      [SPACE] 키를 눌러 다음 장면으로 ▶
+    </div>
+    <style>
+      @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+  `;
+}
+
+function nextSequenceStep() {
+  if (!isSequenceMode) return;
+  playStep(currentStepIndex + 1);
+}
+
+function endSequence() {
+  console.log('🎬 시퀀스 종료');
+  isSequenceMode = false;
+  sequenceSteps = [];
+  currentStepIndex = 0;
+
+  sequenceOverlay.style.display = 'none';
+  alert('모든 시나리오 재생이 끝났습니다!');
+}
+
+// ─────────────────────────────────────────────────────────────
+// ✅ 병합 핸들러: "Earth+Asteroid 폭발"만 담당
+// ─────────────────────────────────────────────────────────────
+window.handleMerger = (p1, p2) => {
+  if (p1.isDead || p2.isDead) return;
+
+  const n1 = (p1.data?.name || '').toLowerCase();
+  const n2 = (p2.data?.name || '').toLowerCase();
+  const combined = n1 + n2;
+
+  const hasEarth = combined.includes('earth');
+  const hasAsteroid = combined.includes('asteroid');
+
+  if (hasEarth && hasAsteroid) {
+    const earth = n1.includes('earth') ? p1 : p2;
+    const asteroid = n1.includes('asteroid') ? p1 : p2;
+    startAsteroidImpactExplosion(earth, asteroid);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// 5. 통합 시나리오 생성 함수 (AI Data -> Scene)
+// ─────────────────────────────────────────────────────────────
+async function createSceneFromData(aiData) {
+  resetScene();
+
+  if (!aiData) {
+    console.error('🚨 데이터가 없습니다.');
+    return;
+  }
+
+  let safeScenarioType = (aiData.scenarioType || aiData.type || '').toLowerCase().trim();
+
+  // ✅ Earth+Asteroid 감지 -> asteroid_impact 강제 전환
+  const names = aiData.objects?.map((o) => (o.name || '').toLowerCase()) || [];
+  const hasEarth = names.some((n) => n.includes('earth'));
+  const hasAsteroid = names.some((n) => n.includes('asteroid'));
+  if (hasEarth && hasAsteroid) safeScenarioType = 'asteroid_impact';
+
+  currentScenarioType = safeScenarioType;
+
+  let setupData = null;
+  const loader = new THREE.TextureLoader();
+
+  switch (safeScenarioType) {
+    case 'solar_system':
+    case 'orbit':
+      setupData = initSolarSystem(scene, world, loader, aiData);
+      break;
+
+    case 'solar_eclipse':
+      // ✅ ambientLight 전달
+      setupData = initSolarEclipseScene(scene, world, loader, aiData, ambientLight);
+      break;
+
+    case 'lunar_eclipse':
+      // (여기도 eclipse에서 밝기 애니메이션 쓴다면 ambientLight 전달 추천)
+      setupData = initLunarEclipseScene(scene, world, loader, aiData, ambientLight);
+      break;
+
+    case 'planet_birth':
+      setupData = initBirthScene(scene, world, loader, aiData);
+      break;
+
+    case 'asteroid_impact': {
+      if (typeof AsteroidImpactMod.initAsteroidImpact !== 'function') {
+        console.error('🚨 SceneAsteroidImpact.js 에서 initAsteroidImpact export를 찾지 못함');
+        console.error('📌 exports:', Object.keys(AsteroidImpactMod));
+        setupData = { planets: [], cameraPosition: aiData.cameraPosition };
+        break;
+      }
+
+      setupData = AsteroidImpactMod.initAsteroidImpact(scene, world, loader, aiData);
+
+      // ✅ 트레일 연결
+      if (setupData?.asteroid && setupData?.earth) {
+        if (asteroidTrail?.dispose) asteroidTrail.dispose();
+        asteroidTrail = createAsteroidFlameTrail(setupData.asteroid, setupData.earth);
+        explosions.push(asteroidTrail);
+      }
+      break;
+    }
+
+    default:
+      setupData = { planets: [], cameraPosition: aiData.cameraPosition };
+      if (aiData.objects && Array.isArray(aiData.objects)) {
+        for (const objData of aiData.objects) {
+          const p = new Planet(scene, world, loader, objData, currentScenarioType);
+          planets.push(p);
+        }
+      }
+      break;
+  }
+
+  if (setupData) {
+    if (setupData.planets) planets = setupData.planets;
+    if (setupData.update) currentScenarioUpdater = setupData.update;
+
+    // ✅ setupControls에 ambientLight 전달 (있으면)
+    if (setupData.setupControls && typeof setupData.setupControls === 'function') {
+      currentControlsCleanup = setupData.setupControls(camera, controls, ambientLight);
+    }
+
+    const defaultCamPos = { x: 0, y: 50, z: 150 };
+    const camPos = setupData.cameraPosition || aiData.cameraPosition || defaultCamPos;
+    const lookAtPos = setupData.cameraLookAt || { x: 0, y: 0, z: 0 };
+
+    const x = Number.isFinite(camPos.x) ? camPos.x : 0;
+    const y = Number.isFinite(camPos.y) ? camPos.y : 50;
+    const z = Number.isFinite(camPos.z) ? camPos.z : 150;
+
+    camera.position.set(x, y, z);
+    camera.lookAt(lookAtPos.x || 0, lookAtPos.y || 0, lookAtPos.z || 0);
+    controls.target.set(lookAtPos.x || 0, lookAtPos.y || 0, lookAtPos.z || 0);
+    originalCameraPosition.set(x, y, z);
+
+    controls.update();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. 물리 로직 (중력)
+// ─────────────────────────────────────────────────────────────
+function applyGravity() {
+  if (currentScenarioType === 'planet_birth' || currentScenarioType === 'asteroid_impact') return;
+  if (planets.length < 2) return;
+
+  const sortedPlanets = [...planets].sort((a, b) => b.mass - a.mass);
+  const star = sortedPlanets[0];
+  const G = 10;
+
+  for (let i = 1; i < sortedPlanets.length; i++) {
+    const planet = sortedPlanets[i];
+    const distVec = new CANNON.Vec3();
+    star.body.position.vsub(planet.body.position, distVec);
+    const r_sq = distVec.lengthSquared();
+    if (r_sq < 1) continue;
+
+    const force = (G * star.mass * planet.mass) / r_sq;
+    distVec.normalize();
+    distVec.scale(force, distVec);
+    planet.body.applyForce(distVec, planet.body.position);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 7. 사용자 입력
+// ─────────────────────────────────────────────────────────────
+const inputField = document.getElementById('user-input');
+const sendBtn = document.getElementById('send-btn');
+const statusDiv = document.getElementById('ai-status');
+
+async function handleUserRequest() {
+  const text = inputField.value;
+  if (!text) return;
+
+  sendBtn.disabled = true;
+  inputField.disabled = true;
+
+  isSequenceMode = false;
+  sequenceOverlay.style.display = 'none';
+
+  try {
+    statusDiv.innerText = 'AI가 생각 중... 🤔';
+    const aiData = await getJsonFromAI(text);
+
+    if ((aiData.scenarioType || '').toLowerCase() === 'sequence') {
+      statusDiv.innerText = `✅ 시퀀스 모드: 총 ${aiData.steps?.length ?? 0}개 장면`;
+      startSequence(aiData.steps);
+    } else {
+      await createSceneFromData(aiData);
+      statusDiv.innerText = `✅ 적용 완료: ${aiData.scenarioType}`;
+    }
+  } catch (error) {
+    console.error('🚨 오류:', error);
+    statusDiv.innerText = '🚨 예상과 다른 시나리오가 들어왔습니다.';
+  } finally {
+    sendBtn.disabled = false;
+    inputField.disabled = false;
+    inputField.value = '';
+    inputField.focus();
+  }
+}
+
+if (sendBtn) {
+  sendBtn.addEventListener('click', handleUserRequest);
+  inputField.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleUserRequest();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 🎙️ Voice Input (Web Speech API) - mic-btn
+// ─────────────────────────────────────────────────────────────
+// (너 코드 그대로 유지 — 생략 가능하지만, 그대로 두면 됨)
+const micBtn = document.getElementById('mic-btn');
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let recognition = null;
+let isListening = false;
+
+if (micBtn) {
+  if (!SpeechRecognition) {
+    micBtn.disabled = true;
+    micBtn.title = '이 브라우저는 음성 인식(Web Speech API)을 지원하지 않습니다. (Chrome/Edge 권장)';
+    micBtn.style.opacity = '0.5';
+    console.warn('SpeechRecognition not supported in this browser.');
+  } else {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'ko-KR';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.textContent = '🛑';
+      micBtn.style.background = '#ff5252';
+      statusDiv.innerText = '🎙️ 듣는 중... 말해줘!';
+    };
+
+    recognition.onresult = (event) => {
+      let finalText = '';
+      let interimText = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += transcript;
+        else interimText += transcript;
+      }
+
+      const text = (finalText || interimText || '').trim();
+      if (text) inputField.value = text;
+    };
+
+    recognition.onerror = (e) => {
+      console.warn('SpeechRecognition error:', e);
+
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        statusDiv.innerText = '🚫 마이크 권한이 필요해요. 브라우저에서 허용해줘!';
+      } else if (e.error === 'no-speech') {
+        statusDiv.innerText = '🎤 음성이 감지되지 않았어요. 다시 말해줘!';
+      } else {
+        statusDiv.innerText = `🚨 음성 인식 오류: ${e.error}`;
+      }
+    };
+
+    recognition.onend = async () => {
+      const wasListening = isListening;
+
+      isListening = false;
+      micBtn.textContent = '🎙️';
+      micBtn.style.background = '';
+      statusDiv.innerText = statusDiv.innerText || ' ';
+
+      const text = (inputField.value || '').trim();
+      if (wasListening && text) {
+        await handleUserRequest();
+      }
+    };
+
+    micBtn.addEventListener('click', () => {
+      if (!recognition) return;
+      if (sendBtn?.disabled || inputField?.disabled) return;
+
+      if (isListening) {
+        recognition.stop();
+      } else {
+        inputField.value = '';
+        recognition.start();
+      }
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 8. 애니메이션 루프
+// ─────────────────────────────────────────────────────────────
 function animate() {
   requestAnimationFrame(animate);
   const deltaTime = clock.getDelta();
 
-  // 1️⃣ 중력 적용
   applyGravity();
-
-  // 2️⃣ 물리 월드 스텝
   world.step(1 / 60, deltaTime, 10);
 
-  // 3️⃣ Planet 업데이트 (body → mesh 동기화)
   for (let i = planets.length - 1; i >= 0; i--) {
     const p = planets[i];
     p.update(deltaTime);
 
-    // SceneAsteroidImpact 전용 커스텀 이펙트
     if (p.customUpdate) p.customUpdate(deltaTime);
 
     if (p.isDead) {
@@ -910,22 +912,17 @@ function animate() {
     }
   }
 
-  // ✅ 4️⃣ mesh 위치가 확정된 후 충돌 체크
   checkCollisions();
 
-  // 5️⃣ 폭발 / 파편 업데이트
   for (let i = explosions.length - 1; i >= 0; i--) {
     explosions[i].update?.();
     if (explosions[i].isFinished) explosions.splice(i, 1);
   }
 
-  // 6️⃣ 시나리오별 updater
   if (currentScenarioUpdater) currentScenarioUpdater(deltaTime);
 
-  // 7️⃣ 우주 배경 회전
   if (universeMesh) universeMesh.rotation.y += 0.0001;
 
-  // 8️⃣ 추적 카메라
   if (followTarget) {
     const targetPos = new THREE.Vector3();
     followTarget.getWorldPosition(targetPos);
@@ -936,10 +933,7 @@ function animate() {
       const dir = new THREE.Vector3()
         .subVectors(camera.position, targetPos)
         .normalize();
-      camera.position.lerp(
-        targetPos.clone().add(dir.multiplyScalar(40)),
-        0.05
-      );
+      camera.position.lerp(targetPos.clone().add(dir.multiplyScalar(40)), 0.05);
     }
   }
 

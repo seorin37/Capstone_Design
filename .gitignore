@@ -27,3 +27,6 @@ dist-ssr
 config.js
 public/config.js
 .env
+
+# model artifacts
+models/
