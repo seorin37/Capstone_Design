@@ -44,3 +44,46 @@ text3d_project/
 │
 ├── .gitignore                   # 보안 및 Git 관리 설정
 └── README.md                    # 이 문서
+
+
+'''
+
+## 🔄 자연어 → 3D 장면 생성 전체 흐름
+
+Gen3D는 아래와 같은 파이프라인을 통해  
+**자연어 입력을 실시간 3D 장면(Scene)으로 변환**합니다.
+
+1. 사용자 입력 (ChatPanel)
+2. 프론트엔드 → FastAPI (`/prompt/scene`) 요청
+3. LLM(Gemini / GPT)이 SceneGraph(JSON) 생성
+4. FastAPI가 MongoDB에서 오브젝트 정보 매핑
+5. 최종 SceneGraph(JSON)를 프론트엔드로 반환
+6. ThreeCanvas가 3D 모델 로드 후 렌더링
+7. 필요 시 `/public/scenarios/*.js` 애니메이션 실행
+
+---
+
+## 🧩 SceneGraph 형식 (LLM 출력 예시)
+
+```json
+{
+  "scenarioType": "solar_system",
+  "objects": [
+    {
+      "name": "Sun",
+      "orbit": null,
+      "rotation_speed": 0.01
+    },
+    {
+      "name": "Earth",
+      "orbit": 20,
+      "rotation_speed": 0.02
+    }
+  ],
+  "animations": ["orbit"],
+  "camera": {
+    "position": [0, 50, 120],
+    "lookAt": [0, 0, 0]
+  }
+}
+
