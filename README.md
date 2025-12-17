@@ -57,7 +57,7 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
 ## 🧱 프레임워크 & 기술 스택
 
 본 프로젝트는 **React 기반 프론트엔드**,  
-**FastAPI 기반 백엔드**, **MongoDB 데이터베이스**,  
+**MongoDB 데이터베이스**,  
 **LLM(Gemini)**을 활용한 Full-Stack AI 시각화 플랫폼입니다.
 
 ### 🎨 Frontend
