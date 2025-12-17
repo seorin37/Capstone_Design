@@ -44,7 +44,7 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
     <td align="center">
       <img src="docs/team/eom_seorin.png" width="120"/><br/>
       <strong>20211365 엄서린</strong><br/>
-      백엔드
+      DB
     </td>
     <td align="center">
       <img src="docs/team/hwang_jaeyoon.png" width="120"/><br/>
@@ -75,20 +75,6 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
 - 백엔드에서 전달된 시나리오 데이터 기반 3D 장면 렌더링
 - 카메라 제어 및 애니메이션 실행
 - 사용자 인터랙션 처리
-
-### ⚙️ Backend
-
-| 기술 | 설명 |
-|---|---|
-| **FastAPI** | Python 기반 고성능 비동기 REST API 서버 |
-| **Python** | 자연어 처리 및 시나리오 라우팅 로직 구현 |
-| **Uvicorn** | ASGI 서버 |
-
-**주요 역할**
-- 프론트엔드 요청 처리 (`/prompt/scene`)
-- 자연어 입력을 JSON 템플릿 형태로 구조화
-- LLM을 통한 시나리오 타입 및 천체 정보 파싱
-- 시나리오 타입에 따라 실행 스크립트 자동 라우팅
 
 ### 🧠 자연어 처리 & 시나리오 생성 방식
 
@@ -156,7 +142,7 @@ LLM(Gemini → 추후 GPT 지원 예정)이 해석하여
 ### ☀️ 태양계 공전 · 자전 시나리오
 - 천체 정보 테이블 자동 생성 (지름, 평균 온도 등)
 - Gemini 기반 필터링 → 특정 행성 강조
-- Scene Graph 기반 부모–자식 구조
+- JSON 템플릿 기반 부모–자식 구조
   - `Sun → Earth → Moon`
 
 ### 🌑 개기일식 · 개기월식 시나리오
